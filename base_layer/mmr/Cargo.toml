@@ -1,0 +1,37 @@
+[package]
+name = "map_mmr"
+authors = ["The Map Development Community"]
+description = "A Merkle Mountain Range implementation"
+repository = "https://github.com/mapprotocol/mapbridge/"
+license = "BSD-3-Clause"
+version = "0.2.6"
+edition = "2018"
+
+[features]
+default = ["native_bitmap"]
+native_bitmap = ["croaring"]
+
+[dependencies]
+tari_utilities = "^0.2"
+thiserror = "1.0.20"
+digest = "0.8.0"
+log = "0.4"
+serde = { version = "1.0.97", features = ["derive"] }
+croaring =  { version = "=0.4.5", optional = true }
+
+[dev-dependencies]
+criterion = "0.2"
+rand="0.7.0"
+blake2 = "0.8.0"
+tari_infra_derive= { path = "../../infrastructure/derive", version = "^0.0" }
+tari_crypto = { version = "^0.5" }
+serde_json = "1.0"
+bincode = "1.1"
+
+[lib]
+# Disable libtest from intercepting Criterion bench arguments
+bench = false
+
+[[bench]]
+name = "bench"
+harness = false
