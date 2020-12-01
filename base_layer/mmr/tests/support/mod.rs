@@ -22,11 +22,66 @@
 //
 
 use croaring::Bitmap;
-use digest::Digest;
-use tari_crypto::common::Blake256;
+use blake2::{VarBlake2b};
+// use tari_crypto::common::Blake256;
 use map_mmr::{Hash, HashSlice, MerkleMountainRange, MutableMmr};
+use digest::{
+    Digest,
+    generic_array::{typenum::U32, GenericArray},
+    FixedOutput,
+    Input,
+    Reset,
+    VariableOutput,
+};
+
+/// A convenience wrapper produce 256 bit hashes from Blake2b
+#[derive(Clone, Debug)]
+pub struct Blake256(VarBlake2b);
+
+impl Blake256 {
+    pub fn new() -> Self {
+        let h = VarBlake2b::new(32).unwrap();
+        Blake256(h)
+    }
+
+    pub fn result(self) -> GenericArray<u8, U32> {
+        self.fixed_result()
+    }
+}
+
+impl Default for Blake256 {
+    fn default() -> Self {
+        let h = VarBlake2b::new(32).unwrap();
+        Blake256(h)
+    }
+}
+
+impl Input for Blake256 {
+    fn input<B: AsRef<[u8]>>(&mut self, data: B) {
+        (self.0).input(data);
+    }
+}
+
+
+impl FixedOutput for Blake256 {
+    type OutputSize = U32;
+
+    fn fixed_result(self) -> GenericArray<u8, U32> {
+        let v = (self.0).vec_result();
+        GenericArray::clone_from_slice(&v)
+    }
+}
+
+impl Reset for Blake256 {
+    fn reset(&mut self) {
+        (self.0).reset()
+    }
+}
+
+
 
 pub type Hasher = Blake256;
+
 
 pub fn create_mmr(size: usize) -> MerkleMountainRange<Hasher, Vec<Hash>> {
     let mut mmr = MerkleMountainRange::<Hasher, _>::new(Vec::default());
@@ -54,7 +109,25 @@ pub fn combine_hashes(hashes: &[&HashSlice]) -> Hash {
     let hasher = Hasher::new();
     hashes
         .iter()
-        .fold(hasher, |hasher, h| hasher.chain(*h))
+        .fold(hasher, |hasher, h| Digest::chain(hasher, *h))
         .result()
         .to_vec()
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::Blake256;
+    use digest::Input;
+    use tari_utilities::hex;
+
+    #[test]
+    fn blake256() {
+        let e = Blake256::new().chain(b"one").chain(b"two").result().to_vec();
+        let h = hex::to_hex(&e);
+        assert_eq!(
+            h,
+            "03521c1777639fc6e5c3d8c3b4600870f18becc155ad7f8053d2c65bc78e4aa0".to_string()
+        );
+    }
 }
