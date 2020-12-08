@@ -94,8 +94,6 @@ decl_module! {
 					// Increment the value read from storage; will error in the event of overflow.
 					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
 					// Update the value in storage with the incremented result.
-					println!("old {}",old);
-
 					Something::put(new);
 					Ok(())
 				},
