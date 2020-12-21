@@ -3368,7 +3368,7 @@ dependencies = [
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
- "pallet-mmr",
+ "map-mmr",
  "pallet-randomness-collective-flip",
  "pallet-sudo",
  "pallet-template",
@@ -3960,7 +3960,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-mmr"
+name = "map-mmr"
 version = "2.0.0"
 dependencies = [
  "frame-support",
