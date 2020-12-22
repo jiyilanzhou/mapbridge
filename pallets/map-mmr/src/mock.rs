@@ -28,6 +28,7 @@ use sp_runtime::{
 	traits::{
 		BlakeTwo256, Keccak256, IdentityLookup,
 	},
+	Perbill,
 };
 use sp_std::cell::RefCell;
 use sp_std::prelude::*;
@@ -36,12 +37,17 @@ impl_outer_origin! {
 	pub enum Origin for Test where system = frame_system {}
 }
 
+// Configure a mock runtime to test the pallet.
 #[derive(Clone, Eq, PartialEq, Encode, Decode)]
 pub struct Test;
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
+	pub const MaximumBlockWeight: Weight = 1024;
+	pub const MaximumBlockLength: u32 = 2 * 1024;
+	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
-impl frame_system::Config for Test {
+
+impl frame_system::Trait for Test {
 	type BaseCallFilter = ();
 	type Origin = Origin;
 	type Call = ();
@@ -54,9 +60,13 @@ impl frame_system::Config for Test {
 	type Header = Header;
 	type Event = ();
 	type BlockHashCount = BlockHashCount;
+	type MaximumBlockWeight = MaximumBlockWeight;
 	type DbWeight = ();
-	type BlockWeights = ();
-	type BlockLength = ();
+	type BlockExecutionWeight = ();
+	type ExtrinsicBaseWeight = ();
+	type MaximumExtrinsicWeight = MaximumBlockWeight;
+	type MaximumBlockLength = MaximumBlockLength;
+	type AvailableBlockRatio = AvailableBlockRatio;
 	type Version = ();
 	type PalletInfo = ();
 	type AccountData = ();
@@ -65,7 +75,7 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 }
 
-impl Config for Test {
+impl Trait for Test {
 	const INDEXING_PREFIX: &'static [u8] = b"mmr-";
 
 	type Hashing = Keccak256;
