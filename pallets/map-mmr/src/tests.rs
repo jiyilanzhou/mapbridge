@@ -27,6 +27,7 @@ use sp_core::{
 		OffchainExt,
 	},
 };
+use sp_core::offchain::OffchainStorage;
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
@@ -79,6 +80,7 @@ fn init_chain(blocks: usize) {
 		new_block();
 	}
 }
+const PREFIX: &'static [u8] = b"";
 
 #[test]
 fn should_start_empty() {
@@ -134,18 +136,18 @@ fn should_append_to_mmr_when_on_initialize_is_called() {
 	// make sure the leaves end up in the offchain DB
 	ext.persist_offchain_overlay();
 	let offchain_db = ext.offchain_db();
-	assert_eq!(offchain_db.get(&MMR::offchain_key(0)).map(decode_node), Some(mmr::Node::Data((
+	assert_eq!(offchain_db.get(PREFIX,&MMR::offchain_key(0)).map(decode_node), Some(mmr::Node::Data((
 		H256::repeat_byte(1),
 		LeafData::new(1),
 	))));
-	assert_eq!(offchain_db.get(&MMR::offchain_key(1)).map(decode_node), Some(mmr::Node::Data((
+	assert_eq!(offchain_db.get(PREFIX,&MMR::offchain_key(1)).map(decode_node), Some(mmr::Node::Data((
 		H256::repeat_byte(2),
 		LeafData::new(2),
 	))));
-	assert_eq!(offchain_db.get(&MMR::offchain_key(2)).map(decode_node), Some(mmr::Node::Hash(
+	assert_eq!(offchain_db.get(PREFIX,&MMR::offchain_key(2)).map(decode_node), Some(mmr::Node::Hash(
 		hex("bc54778fab79f586f007bd408dca2c4aa07959b27d1f2c8f4f2549d1fcfac8f8")
 	)));
-	assert_eq!(offchain_db.get(&MMR::offchain_key(3)), None);
+	assert_eq!(offchain_db.get(PREFIX,&MMR::offchain_key(3)), None);
 }
 
 #[test]
@@ -250,7 +252,7 @@ fn should_verify() {
 	ext2.execute_with(|| {
 		init_chain(7);
 		// then
-		assert_eq!(crate::Module::<Test>::verify_leaf(leaf, proof5), Ok(()));
+		assert_eq!(crate::Module::<Test>::verify_proof_by_root(leaf, proof5), Ok(()));
 	});
 }
 
@@ -270,6 +272,6 @@ fn should_verify_on_the_next_block_since_there_is_no_pruning_yet() {
 		new_block();
 
 		// then
-		assert_eq!(crate::Module::<Test>::verify_leaf(leaf, proof5), Ok(()));
+		assert_eq!(crate::Module::<Test>::verify_proof_by_root(leaf, proof5), Ok(()));
 	});
 }

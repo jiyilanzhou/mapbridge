@@ -152,23 +152,7 @@ decl_module! {
 	/// A public part of the pallet.
 	pub struct Module<T: Trait<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
-			use primitives::LeafDataProvider;
-			let leaves = Self::mmr_leaves();
-			let peaks_before = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
-			let data = T::LeafData::leaf_data();
-			// append new leaf to MMR
-			let mut mmr: ModuleMmr<mmr::storage::RuntimeStorage, T, I> = mmr::Mmr::new(leaves);
-			mmr.push(data).expect("MMR push never fails.");
-
-			// update the size
-			let (leaves, root) = mmr.finalize().expect("MMR finalize never fails.");
-			<T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
-
-			<NumberOfLeaves>::put(leaves);
-			<RootHash<T, I>>::put(root);
-
-			let peaks_after = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
-			T::WeightInfo::on_initialize(peaks_before.max(peaks_after))
+			Self::append_block(n)
 		}
 	}
 }
@@ -186,6 +170,26 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	fn offchain_key(pos: u64) -> sp_std::prelude::Vec<u8> {
 		(T::INDEXING_PREFIX, pos).encode()
 	}
+
+	/// Append the current block as leaf node into MMR
+	fn append_block(n: T::BlockNumber) -> Weight {
+		use primitives::LeafDataProvider;
+		let leaves = Self::mmr_leaves();
+		let peaks_before = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
+		let data = T::LeafData::leaf_data();
+		// append new leaf to MMR
+		let mut mmr: ModuleMmr<mmr::storage::RuntimeStorage, T, I> = mmr::Mmr::new(leaves);
+		mmr.push(data).expect("MMR push never fails.");
+
+		// update the size
+		let (leaves, root) = mmr.finalize().expect("MMR finalize never fails.");
+		<T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
+
+		<NumberOfLeaves>::put(leaves);
+		<RootHash<T, I>>::put(root);
+
+		let peaks_after = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
+		T::WeightInfo::on_initialize(peaks_before.max(peaks_after))	}
 
 	/// Generate a MMR proof for the given `leaf_index`.
 	///
@@ -207,7 +211,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	/// It will return `Ok(())` if the proof is valid
 	/// and an `Err(..)` if MMR is inconsistent (some leaves are missing)
 	/// or the proof is invalid.
-	pub fn verify_leaf(
+	pub fn verify_proof_by_root(
 		leaf: LeafOf<T, I>,
 		proof: primitives::Proof<<T as Trait<I>>::Hash>,
 	) -> Result<(), mmr::Error> {
