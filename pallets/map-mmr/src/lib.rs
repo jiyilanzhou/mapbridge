@@ -57,12 +57,15 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
+use codec::{Encode, Decode};
 use frame_support::{
 	decl_module, decl_storage,
 	weights::Weight,
 };
-use sp_runtime::traits;
+use sp_runtime::{
+	traits::{self},
+	RuntimeDebug,
+};
 
 mod default_weights;
 mod mmr;
@@ -77,6 +80,20 @@ pub mod primitives;
 
 pub trait WeightInfo {
 	fn on_initialize(peaks: u64) -> Weight;
+}
+
+#[cfg(feature = "std")]
+use serde::Serialize;
+
+pub const MAP_MMR_ROOT_LOG_ID: [u8; 6] = *b"MMROOT";
+
+#[cfg_attr(feature = "std", derive(Serialize))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug)]
+pub struct MapMMRRootLog<Hash> {
+	/// Specific prefix to identify the mmr root log in the digest items with Other type.
+	pub prefix: [u8; 6],
+	/// The merkle mountain range root hash.
+	pub mmr_root: Hash,
 }
 
 /// This pallet's Traituration trait
@@ -171,25 +188,26 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 		(T::INDEXING_PREFIX, pos).encode()
 	}
 
-	/// Append the current block as leaf node into MMR
-	fn append_block(n: T::BlockNumber) -> Weight {
-		use primitives::LeafDataProvider;
-		let leaves = Self::mmr_leaves();
-		let peaks_before = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
-		let data = T::LeafData::leaf_data();
-		// append new leaf to MMR
-		let mut mmr: ModuleMmr<mmr::storage::RuntimeStorage, T, I> = mmr::Mmr::new(leaves);
-		mmr.push(data).expect("MMR push never fails.");
+    /// Append the current block as leaf node into MMR
+    fn append_block(_n: T::BlockNumber) -> Weight {
+        use primitives::LeafDataProvider;
+        let leaves = Self::mmr_leaves();
+        let peaks_before = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
+        let data = T::LeafData::leaf_data();
+        // append new leaf to MMR
+        let mut mmr: ModuleMmr<mmr::storage::RuntimeStorage, T, I> = mmr::Mmr::new(leaves);
+        mmr.push(data).expect("MMR push never fails.");
 
-		// update the size
-		let (leaves, root) = mmr.finalize().expect("MMR finalize never fails.");
-		<T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
+        // update the size
+        let (leaves, root) = mmr.finalize().expect("MMR finalize never fails.");
+        <T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
 
-		<NumberOfLeaves>::put(leaves);
-		<RootHash<T, I>>::put(root);
+        <NumberOfLeaves>::put(leaves);
+        <RootHash<T, I>>::put(root);
 
-		let peaks_after = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
-		T::WeightInfo::on_initialize(peaks_before.max(peaks_after))	}
+        let peaks_after = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
+        T::WeightInfo::on_initialize(peaks_before.max(peaks_after))
+    }
 
 	/// Generate a MMR proof for the given `leaf_index`.
 	///

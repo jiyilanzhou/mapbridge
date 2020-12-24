@@ -11,7 +11,6 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys, MultiSignature,
 	transaction_validity::{TransactionValidity, TransactionSource},
-	RuntimeDebug,
 };
 use sp_runtime::traits::{
 	BlakeTwo256, Block as BlockT, IdentityLookup, Verify, IdentifyAccount, NumberFor, Saturating,Keccak256,
@@ -24,7 +23,7 @@ use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 
-use codec::{Decode, Encode};
+use codec::{Encode};
 // A few exports that help ease life for downstream crates.
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -268,27 +267,13 @@ impl pallet_template::Trait for Runtime {
 	type Event = Event;
 }
 
-pub const MAP_MMR_ROOT_LOG_ID: [u8; 6] = *b"MMROOT";
-
-#[cfg(feature = "std")]
-use serde::Serialize;
-
-#[cfg_attr(feature = "std", derive(Serialize))]
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug)]
-pub struct MapMMRRootLog<Hash> {
-	/// Specific prefix to identify the mmr root log in the digest items with Other type.
-	pub prefix: [u8; 6],
-	/// The merkle mountain range root hash.
-	pub mmr_root: Hash,
-}
-
 type MmrHash = <Keccak256 as sp_runtime::traits::Hash>::Output;
 
 pub struct MapDepositEntity;
 impl map_mmr::primitives::OnNewRoot<MmrHash> for MapDepositEntity {
 	fn on_new_root(root: &Hash) {
-		let mmr_root_log = MapMMRRootLog::<Hash> {
-			prefix: MAP_MMR_ROOT_LOG_ID,
+		let mmr_root_log = map_mmr::MapMMRRootLog::<Hash> {
+			prefix: map_mmr::MAP_MMR_ROOT_LOG_ID,
 			mmr_root: root.clone()
 		};
 		let digest = DigestItem::Other(mmr_root_log.encode());

@@ -81,8 +81,22 @@ impl Trait for Test {
 	type Hashing = Keccak256;
 	type Hash = H256;
 	type LeafData = Compact<Keccak256, (frame_system::Module<Test>, LeafData)>;
-	type OnNewRoot = ();
+	type OnNewRoot = MapDepositEntity;
 	type WeightInfo = ();
+}
+
+type MmrHash = <Keccak256 as sp_runtime::traits::Hash>::Output;
+
+pub struct MapDepositEntity;
+impl primitives::OnNewRoot<MmrHash> for MapDepositEntity {
+	fn on_new_root(root: &H256) {
+		let mmr_root_log = MapMMRRootLog::<H256> {
+			prefix: MAP_MMR_ROOT_LOG_ID,
+			mmr_root: root.clone()
+		};
+		let digest = DigestItem::Other(mmr_root_log.encode());
+		<frame_system::Module<Test>>::deposit_log(digest);
+	}
 }
 
 #[derive(Encode, Decode, Clone, Default, Eq, PartialEq, Debug)]
@@ -113,3 +127,12 @@ impl LeafDataProvider for LeafData {
 }
 
 pub(crate) type MMR = Module<Test>;
+
+pub fn header_mmr_log(hash: H256) -> DigestItem<H256> {
+	let mmr_root_log = MapMMRRootLog::<H256> {
+		prefix: MAP_MMR_ROOT_LOG_ID,
+		mmr_root: hash,
+	};
+
+	DigestItem::Other(mmr_root_log.encode())
+}

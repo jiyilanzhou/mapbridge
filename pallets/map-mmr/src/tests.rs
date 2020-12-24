@@ -83,6 +83,32 @@ fn init_chain(blocks: usize) {
 const PREFIX: &'static [u8] = b"";
 
 #[test]
+fn first_header_mmr() {
+	new_test_ext().execute_with(|| {
+		let parent_hash: H256 = Default::default();
+
+		frame_system::Module::<Test>::initialize(
+			&1,
+			&parent_hash,
+			&Default::default(),
+			&Default::default(),
+			frame_system::InitKind::Full,
+		);
+
+		frame_system::Module::<Test>::note_finished_extrinsics();
+		MMR::on_initialize(1);
+
+		let header = frame_system::Module::<Test>::finalize();
+		assert_eq!(
+			header.digest,
+			sp_runtime::generic::Digest {
+				logs: vec![header_mmr_log(crate::RootHash::<Test>::get())]
+			}
+		);
+	});
+}
+
+#[test]
 fn should_start_empty() {
 	let _ = env_logger::try_init();
 	new_test_ext().execute_with(|| {
