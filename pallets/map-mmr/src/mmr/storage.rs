@@ -19,7 +19,8 @@
 
 use codec::Encode;
 use crate::mmr::{NodeOf, Node};
-use crate::{NumberOfLeaves, Nodes, Module, Trait, Instance, primitives};
+use crate::{NumberOfLeaves, Nodes, Module, Trait, Instance};
+use map_mmr_primitive as primitives;
 use frame_support::{StorageMap, StorageValue};
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::Vec;

@@ -3200,6 +3200,8 @@ dependencies = [
  "frame-benchmarking-cli",
  "jsonrpc-core",
  "map-bridge-runtime",
+ "map-mmr-rpc",
+ "map-mmr-rpc-runtime-api",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
  "sc-cli",
@@ -3239,6 +3241,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "hex-literal",
  "map-mmr",
+ "map-mmr-primitive",
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
@@ -3274,10 +3277,53 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
+ "map-mmr-primitive",
+ "map-mmr-rpc-runtime-api",
  "parity-scale-codec",
  "serde",
  "sp-core",
  "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "map-mmr-primitive"
+version = "2.0.0"
+dependencies = [
+ "env_logger 0.5.13",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "parity-scale-codec",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "map-mmr-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "map-mmr-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "map-mmr-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "map-mmr-primitive",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]
@@ -5946,18 +5992,18 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.117"
+version = "1.0.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b88fa983de7720629c9387e9f517353ed404164b1e482c970a90c1a4aaf7dc1a"
+checksum = "06c64263859d87aa2eb554587e2d23183398d617427327cf2b3d0ed8c69e4800"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.117"
+version = "1.0.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbd1ae72adb44aab48f325a02444a5fc079349a8d804c1fc922aed3f7454c74e"
+checksum = "c84d3526699cd55261af4b941e4e725444df67aa4f9e6a3564f18030d12672df"
 dependencies = [
  "proc-macro2",
  "quote",

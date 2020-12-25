@@ -19,7 +19,7 @@ pub mod storage;
 pub mod utils;
 mod mmr;
 
-use crate::primitives::FullLeaf;
+use map_mmr_primitive::{FullLeaf, DataOrHash};
 use sp_runtime::traits;
 
 pub use self::mmr::{Mmr, Error};
@@ -28,7 +28,7 @@ pub use self::mmr::{Mmr, Error};
 pub type NodeOf<T, I, L> = Node<<T as crate::Trait<I>>::Hashing, L>;
 
 /// A node stored in the MMR.
-pub type Node<H, L> = crate::primitives::DataOrHash<H, L>;
+pub type Node<H, L> = DataOrHash<H, L>;
 
 /// Default Merging & Hashing behavior for MMR.
 pub struct Hasher<H, L>(sp_std::marker::PhantomData<(H, L)>);

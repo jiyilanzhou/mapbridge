@@ -52,6 +52,9 @@ sp-runtime = '2.0.0'
 sp-transaction-pool = '2.0.0'
 substrate-frame-rpc-system = '2.0.0'
 
+map-mmr-rpc             = { path = "../pallets/map-mmr/rpc" }
+map-mmr-rpc-runtime-api = { path = "../pallets/map-mmr/rpc/runtime-api" }
+
 [features]
 default = []
 runtime-benchmarks = ['map-bridge-runtime/runtime-benchmarks']

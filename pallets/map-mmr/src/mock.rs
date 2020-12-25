@@ -16,7 +16,8 @@
 // limitations under the License.
 
 use crate::*;
-use crate::primitives::{LeafDataProvider, Compact};
+use map_mmr_primitive::{
+	LeafDataProvider, Compact};
 
 use codec::{Encode, Decode};
 use frame_support::{
@@ -79,7 +80,6 @@ impl Trait for Test {
 	const INDEXING_PREFIX: &'static [u8] = b"mmr-";
 
 	type Hashing = Keccak256;
-	type Hash = H256;
 	type LeafData = Compact<Keccak256, (frame_system::Module<Test>, LeafData)>;
 	type OnNewRoot = MapDepositEntity;
 	type WeightInfo = ();

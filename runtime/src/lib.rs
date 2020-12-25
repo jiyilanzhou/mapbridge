@@ -270,7 +270,7 @@ impl pallet_template::Trait for Runtime {
 type MmrHash = <Keccak256 as sp_runtime::traits::Hash>::Output;
 
 pub struct MapDepositEntity;
-impl map_mmr::primitives::OnNewRoot<MmrHash> for MapDepositEntity {
+impl map_mmr_primitive::OnNewRoot<MmrHash> for MapDepositEntity {
 	fn on_new_root(root: &Hash) {
 		let mmr_root_log = map_mmr::MapMMRRootLog::<Hash> {
 			prefix: map_mmr::MAP_MMR_ROOT_LOG_ID,
@@ -285,7 +285,6 @@ impl map_mmr::primitives::OnNewRoot<MmrHash> for MapDepositEntity {
 impl map_mmr::Trait for Runtime {
 	const INDEXING_PREFIX: &'static [u8] = b"map_mmr";
 	type Hashing = Keccak256;
-	type Hash = MmrHash;
 	type OnNewRoot = MapDepositEntity;
 	type WeightInfo = ();
 	type LeafData = frame_system::Module<Self>;

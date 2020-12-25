@@ -17,7 +17,8 @@
 
 use crate::*;
 use crate::mock::*;
-use crate::primitives::{Proof, Compact};
+use map_mmr_primitive::{
+	Proof, Compact};
 
 use frame_support::traits::OnInitialize;
 use sp_core::{

@@ -22,12 +22,12 @@ use crate::{
 		storage::{Storage, OffchainStorage, RuntimeStorage},
 		utils::NodesUtils,
 	},
-	primitives,
 };
+use map_mmr_primitive as primitives;
 use frame_support::{debug, RuntimeDebug};
 use sp_std::fmt;
 #[cfg(not(feature = "std"))]
-use sp_std::{vec, prelude::Vec};
+use sp_std::{vec};
 
 /// A wrapper around a MMR library to expose limited functionality.
 ///
@@ -66,7 +66,7 @@ impl<StorageType, T, I, L> Mmr<StorageType, T, I, L> where
 	pub fn verify_leaf_proof(
 		&self,
 		leaf: L,
-		proof: primitives::Proof<<T as Trait<I>>::Hash>,
+		proof: primitives::Proof<T::Hash>,
 	) -> Result<bool, Error> {
 		let p = mmr_lib::MerkleProof::<
 			NodeOf<T, I, L>,
@@ -112,7 +112,7 @@ impl<T, I, L> Mmr<RuntimeStorage, T, I, L> where
 
 	/// Commit the changes to underlying storage, return current number of leaves and
 	/// calculate the new MMR's root hash.
-	pub fn finalize(self) -> Result<(u64, <T as Trait<I>>::Hash), Error> {
+	pub fn finalize(self) -> Result<(u64, T::Hash), Error> {
 		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;
 		self.mmr.commit().map_err(|e| Error::Commit.log_error(e))?;
 		Ok((self.leaves, root.hash()))
@@ -130,7 +130,7 @@ impl<T, I, L> Mmr<OffchainStorage, T, I, L> where
 	/// Proof generation requires all the nodes (or their hashes) to be available in the storage.
 	/// (i.e. you can't run the function in the pruned storage).
 	pub fn generate_proof(&self, leaf_index: u64) -> Result<
-		(L, primitives::Proof<<T as Trait<I>>::Hash>),
+		(L, primitives::Proof<T::Hash>),
 		Error
 	> {
 		let position = mmr_lib::leaf_index_to_pos(leaf_index);

@@ -35,7 +35,7 @@
 //! - verify MMR leaf proofs (on-chain)
 //! - generate leaf proofs (off-chain)
 //!
-//! See [primitives::Compact] documentation for how you can optimize proof size for leafs that are
+//! See [map_mmr_primitive::Compact] documentation for how you can optimize proof size for leafs that are
 //! composed from multiple elements.
 //!
 //! ## What for?
@@ -66,6 +66,13 @@ use sp_runtime::{
 	traits::{self},
 	RuntimeDebug,
 };
+use map_mmr_primitive::{
+	Proof, OnNewRoot};
+use map_mmr_primitive::LeafDataProvider;
+use map_mmr_rpc_runtime_api::{RuntimeDispatchInfo};
+
+#[cfg(not(feature = "std"))]
+use sp_std::{vec};
 
 mod default_weights;
 mod mmr;
@@ -75,8 +82,6 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-
-pub mod primitives;
 
 pub trait WeightInfo {
 	fn on_initialize(peaks: u64) -> Weight;
@@ -118,24 +123,16 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	///
 	/// Then we create a tuple of these two hashes, SCALE-encode it (concatenate) and
 	/// hash, to obtain a new MMR inner node - the new peak.
-	type Hashing: traits::Hash<Output = <Self as Trait<I>>::Hash>;
-
-	/// The hashing output type.
-	///
-	/// This type is actually going to be stored in the MMR.
-	/// Required to be provided again, to satisfy trait bounds for storage items.
-	type Hash: traits::Member + traits::MaybeSerializeDeserialize + sp_std::fmt::Debug
-		+ sp_std::hash::Hash + AsRef<[u8]> + AsMut<[u8]> + Copy + Default + codec::Codec
-		+ codec::EncodeLike;
+	type Hashing: traits::Hash<Output = <Self as frame_system::Trait>::Hash>;
 
 	/// Data stored in the leaf nodes.
 	///
-	/// The [LeafData](primitives::LeafDataProvider) is responsible for returning the entire leaf
+	/// The [LeafData](map_mmr_primitive::LeafDataProvider) is responsible for returning the entire leaf
 	/// data that will be inserted to the MMR.
-	/// [LeafDataProvider](primitives::LeafDataProvider)s can be composed into tuples to put
-	/// multiple elements into the tree. In such a case it might be worth using [primitives::Compact]
+	/// [LeafDataProvider](map_mmr_primitive::LeafDataProvider)s can be composed into tuples to put
+	/// multiple elements into the tree. In such a case it might be worth using [map_mmr_primitive::Compact]
 	/// to make MMR proof for one element of the tuple leaner.
-	type LeafData: primitives::LeafDataProvider;
+	type LeafData: LeafDataProvider;
 
 	/// A hook to act on the new MMR root.
 	///
@@ -143,7 +140,7 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 	/// apart from having it in the storage. For instance you might output it in the header digest
 	/// (see [frame_system::Module::deposit_log]) to make it available for Light Clients.
 	/// Hook complexity should be `O(1)`.
-	type OnNewRoot: primitives::OnNewRoot<<Self as Trait<I>>::Hash>;
+	type OnNewRoot: OnNewRoot<<Self as frame_system::Trait>::Hash>;
 
 	/// Weights for this pallet.
 	type WeightInfo: WeightInfo;
@@ -152,7 +149,7 @@ pub trait Trait<I = DefaultInstance>: frame_system::Trait {
 decl_storage! {
 	trait Store for Module<T: Trait<I>, I: Instance = DefaultInstance> as MerkleMountainRange {
 		/// Latest MMR Root hash.
-		pub RootHash get(fn mmr_root_hash): <T as Trait<I>>::Hash;
+		pub RootHash get(fn mmr_root_hash): T::Hash;
 
 		/// Current size of the MMR (number of leaves).
 		pub NumberOfLeaves get(fn mmr_leaves): u64;
@@ -161,7 +158,7 @@ decl_storage! {
 		///
 		/// Note this collection only contains MMR peaks, the inner nodes (and leaves)
 		/// are pruned and only stored in the Offchain DB.
-		pub Nodes get(fn mmr_peak): map hasher(identity) u64 => Option<<T as Trait<I>>::Hash>;
+		pub Nodes get(fn mmr_peak): map hasher(identity) u64 => Option<T::Hash>;
 	}
 }
 
@@ -178,19 +175,43 @@ decl_module! {
 type ModuleMmr<StorageType, T, I> = mmr::Mmr<StorageType, T, I, LeafOf<T, I>>;
 
 /// Leaf data.
-type LeafOf<T, I> = <<T as Trait<I>>::LeafData as primitives::LeafDataProvider>::LeafData;
+type LeafOf<T, I> = <<T as Trait<I>>::LeafData as LeafDataProvider>::LeafData;
 
 /// Hashing used for the pallet.
 pub(crate) type HashingOf<T, I> = <T as Trait<I>>::Hashing;
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
+	impl_rpc! {
+		pub fn gen_proof_rpc(
+			leaf_index: u64,
+		) -> RuntimeDispatchInfo<T::Hash> {
+
+				let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(Self::mmr_leaves());
+					if let Ok(merkle_proof) = mmr.generate_proof(leaf_index) {
+						return RuntimeDispatchInfo {
+							mmr_size: mmr::utils::NodesUtils::new(Self::mmr_leaves()).size(),
+							proof: merkle_proof.1,
+						};
+					}
+
+			RuntimeDispatchInfo {
+				mmr_size: 0,
+				proof: Proof{
+							leaf_index: 0,
+							leaf_count: 7,
+							items: vec![]
+						},
+			}
+		}
+	}
+
+
 	fn offchain_key(pos: u64) -> sp_std::prelude::Vec<u8> {
 		(T::INDEXING_PREFIX, pos).encode()
 	}
 
     /// Append the current block as leaf node into MMR
     fn append_block(_n: T::BlockNumber) -> Weight {
-        use primitives::LeafDataProvider;
         let leaves = Self::mmr_leaves();
         let peaks_before = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
         let data = T::LeafData::leaf_data();
@@ -200,7 +221,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
         // update the size
         let (leaves, root) = mmr.finalize().expect("MMR finalize never fails.");
-        <T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
+        <T::OnNewRoot as OnNewRoot<_>>::on_new_root(&root);
 
         <NumberOfLeaves>::put(leaves);
         <RootHash<T, I>>::put(root);
@@ -216,11 +237,12 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	/// all the leaves to be present.
 	/// It may return an error or panic if used incorrectly.
 	pub fn generate_proof(leaf_index: u64) -> Result<
-		(LeafOf<T, I>, primitives::Proof<<T as Trait<I>>::Hash>),
+		(LeafOf<T, I>, Proof<T::Hash>),
 		mmr::Error,
 	> {
 		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(Self::mmr_leaves());
-		mmr.generate_proof(leaf_index)
+		let result = mmr.generate_proof(leaf_index);
+		result
 	}
 
 	/// Verify MMR proof for given `leaf`.
@@ -231,7 +253,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	/// or the proof is invalid.
 	pub fn verify_proof_by_root(
 		leaf: LeafOf<T, I>,
-		proof: primitives::Proof<<T as Trait<I>>::Hash>,
+		proof: Proof<T::Hash>,
 	) -> Result<(), mmr::Error> {
 		if proof.leaf_count > Self::mmr_leaves()
 			|| proof.leaf_count == 0
@@ -250,4 +272,28 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 			Err(mmr::Error::Verify.log_debug("The proof is incorrect."))
 		}
 	}
+}
+
+#[macro_export]
+macro_rules! impl_rpc {
+	(
+		$(pub)? fn $fnname:ident($($params:tt)*) -> $respname:ident$(<$($gtype:ty),+>)? {
+			$($fnbody:tt)*
+		}
+	) => {
+		#[cfg(feature = "std")]
+		pub fn $fnname($($params)*) -> $respname$(<$($gtype),+>)?
+		$(
+		where
+			$($gtype: std::fmt::Display + std::str::FromStr),+
+		)?
+		{
+			$($fnbody)*
+		}
+
+		#[cfg(not(feature = "std"))]
+		pub fn $fnname($($params)*) -> $respname$(<$($gtype),+>)? {
+			$($fnbody)*
+		}
+	};
 }

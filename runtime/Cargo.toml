@@ -27,6 +27,7 @@ serde = { features = ['derive'], optional = true, version = '1.0.101' }
 # local dependencies
 pallet-template = { path = '../pallets/template', default-features = false, version = '2.0.0' }
 map-mmr = { path = '../pallets/map-mmr', default-features = false, version = '2.0.0' }
+map-mmr-primitive = { default-features = false, path = "../pallets/map-mmr/primitive" }
 
 # Substrate dependencies
 frame-benchmarking = { default-features = false, optional = true, version = '2.0.0' }
@@ -95,4 +96,5 @@ std = [
     'sp-std/std',
     'sp-transaction-pool/std',
     'sp-version/std',
+    "map-mmr-primitive/std",
 ]
