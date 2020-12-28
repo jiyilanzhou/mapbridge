@@ -230,6 +230,10 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         T::WeightInfo::on_initialize(peaks_before.max(peaks_after))
     }
 
+	pub fn retrieve_mmr(leaf: u64) -> Result<(u64, T::Hash), mmr::Error> {
+		let mmr: ModuleMmr<mmr::storage::RuntimeStorage, T, I> = mmr::Mmr::new(leaf+1);
+        mmr.finalize()
+	}
 	/// Generate a MMR proof for the given `leaf_index`.
 	///
 	/// Note this method can only be used from an off-chain context
