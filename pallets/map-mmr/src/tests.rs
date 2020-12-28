@@ -18,7 +18,7 @@
 use crate::*;
 use crate::mock::*;
 use map_mmr_primitive::{
-	Proof, Compact};
+	Proof, Compact, DataOrHash};
 
 use frame_support::traits::OnInitialize;
 use sp_core::{
@@ -62,7 +62,6 @@ fn decode_node(v: Vec<u8>) -> mmr::Node<
 	<Test as Trait>::Hashing,
 	(H256, LeafData),
 > {
-	use crate::primitives::DataOrHash;
 	type A = DataOrHash::<<Test as Trait>::Hashing, H256>;
 	type B = DataOrHash::<<Test as Trait>::Hashing, LeafData>;
 	type Node = mmr::Node<<Test as Trait>::Hashing, (A, B)>;

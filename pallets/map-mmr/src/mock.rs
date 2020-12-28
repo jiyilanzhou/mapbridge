@@ -30,9 +30,11 @@ use sp_runtime::{
 		BlakeTwo256, Keccak256, IdentityLookup,
 	},
 	Perbill,
+	generic::DigestItem
 };
 use sp_std::cell::RefCell;
 use sp_std::prelude::*;
+use map_mmr_primitive as primitives;
 
 impl_outer_origin! {
 	pub enum Origin for Test where system = frame_system {}
