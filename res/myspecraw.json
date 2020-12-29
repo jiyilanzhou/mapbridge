@@ -1,12 +1,12 @@
 {
-  "name": "Local Testnet",
-  "id": "local_testnet",
-  "chainType": "Local",
+  "name": "MAP Testnet",
+  "id": "map_testnet",
+  "chainType": "Live",
   "bootNodes": [
     "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEiH4ZF2d8mZNCuyLebLK29PhNT9kBrWhrFSCAT4uQM3o"
   ],
   "telemetryEndpoints": null,
-  "protocolId": null,
+  "protocolId": "map",
   "properties": null,
   "consensusEngine": null,
   "lightSyncState": null,
