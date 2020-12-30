@@ -54,6 +54,16 @@ sp-runtime = { default-features = false, version = '2.0.0' }
 sp-session = { default-features = false, version = '2.0.0' }
 sp-std = { default-features = false, version = '2.0.0' }
 sp-transaction-pool = { default-features = false, version = '2.0.0' }
+pallet-utility = { version = "2.0.0", default-features = false }
+pallet-babe = { version = "2.0.0", default-features = false }
+sp-consensus-babe = { version = "0.8.0", default-features = false }
+pallet-authority-discovery = { version = "2.0.0", default-features = false" }
+pallet-authorship = { version = "2.0.0", default-features = false" }
+pallet-session = { version = "2.0.0", features = ["historical"], default-features = false }
+pallet-session-benchmarking = { version = "2.0.0", default-features = false, optional = true }
+pallet-im-online = { version = "2.0.0", default-features = false }
+pallet-staking = { version = "2.0.0", default-features = false }
+pallet-staking-reward-curve = { version = "2.0.0", default-features = false }
 sp-version = { default-features = false, version = '2.0.0' }
 
 [features]
@@ -66,7 +76,12 @@ runtime-benchmarks = [
     'frame-system/runtime-benchmarks',
     'pallet-balances/runtime-benchmarks',
     'pallet-timestamp/runtime-benchmarks',
+    "pallet-utility/runtime-benchmarks",
     'sp-runtime/runtime-benchmarks',
+    "pallet-babe/runtime-benchmarks",
+    "pallet-session-benchmarking",
+    "pallet-im-online/runtime-benchmarks",
+    "pallet-staking/runtime-benchmarks",
 ]
 std = [
     'codec/std',
@@ -94,7 +109,15 @@ std = [
     'sp-runtime/std',
     'sp-session/std',
     'sp-std/std',
+    "pallet-utility/std",
+    "pallet-babe/std",
+    "sp-consensus-babe/std",
     'sp-transaction-pool/std',
+    "pallet-authorship/std",
+    "pallet-authority-discovery/std",
+    "pallet-session/std",
+    "pallet-im-online/std",
+    "pallet-staking/std",
     'sp-version/std',
     "map-mmr-primitive/std",
 ]
