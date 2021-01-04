@@ -59,7 +59,7 @@
 
 use codec::{Encode, Decode};
 use frame_support::{
-	decl_module, decl_storage,
+	decl_module, decl_storage,debug,
 	weights::Weight,
 };
 use sp_runtime::{
@@ -223,7 +223,9 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         let (leaves, root) = mmr.finalize().expect("MMR finalize never fails.");
         <T::OnNewRoot as OnNewRoot<_>>::on_new_root(&root);
 
-        <NumberOfLeaves>::put(leaves);
+		debug::native::info!("append_block! {:?} {} {} {:?}",data, _n,leaves, root);
+
+		<NumberOfLeaves>::put(leaves);
         <RootHash<T, I>>::put(root);
 
         let peaks_after = mmr::utils::NodesUtils::new(leaves).number_of_peaks();

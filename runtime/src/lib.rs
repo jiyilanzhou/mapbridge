@@ -37,6 +37,7 @@ pub use frame_support::{
 		Weight, IdentityFee,
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 	},
+	debug,
 };
 
 /// Import the template pallet.
@@ -277,6 +278,9 @@ impl map_mmr_primitive::OnNewRoot<MmrHash> for MapDepositEntity {
 			mmr_root: root.clone()
 		};
 		let digest = DigestItem::Other(mmr_root_log.encode());
+
+		debug::native::info!("on_new_root! {:?} ",digest);
+
 		<frame_system::Module<Runtime>>::deposit_log(digest);
 	}
 }
