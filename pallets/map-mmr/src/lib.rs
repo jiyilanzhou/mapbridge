@@ -217,7 +217,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         let data = T::LeafData::leaf_data();
         // append new leaf to MMR
         let mut mmr: ModuleMmr<mmr::storage::RuntimeStorage, T, I> = mmr::Mmr::new(leaves);
-        mmr.push(data).expect("MMR push never fails.");
+        mmr.push(data.clone()).expect("MMR push never fails.");
 
         // update the size
         let (leaves, root) = mmr.finalize().expect("MMR finalize never fails.");
