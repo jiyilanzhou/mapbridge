@@ -83,7 +83,7 @@ fn init_chain(blocks: usize) {
 const PREFIX: &'static [u8] = b"";
 
 #[test]
-fn first_header_mmr() {
+fn first_on_initialize() {
 	new_test_ext().execute_with(|| {
 		let parent_hash: H256 = Default::default();
 
@@ -109,7 +109,7 @@ fn first_header_mmr() {
 }
 
 #[test]
-fn should_start_empty() {
+fn check_storage_empty() {
 	let _ = env_logger::try_init();
 	new_test_ext().execute_with(|| {
 		// given
@@ -136,7 +136,7 @@ fn should_start_empty() {
 }
 
 #[test]
-fn should_append_to_mmr_when_on_initialize_is_called() {
+fn check_offchain_db() {
 	let _ = env_logger::try_init();
 	let mut ext = new_test_ext();
 	ext.execute_with(|| {
@@ -177,7 +177,7 @@ fn should_append_to_mmr_when_on_initialize_is_called() {
 }
 
 #[test]
-fn should_construct_larger_mmr_correctly() {
+fn check_construct_mmr_correctly() {
 	let _ = env_logger::try_init();
 	new_test_ext().execute_with(|| {
 		// when
@@ -197,7 +197,7 @@ fn should_construct_larger_mmr_correctly() {
 }
 
 #[test]
-fn should_generate_proofs_correctly() {
+fn check_generate_proofs_correctly() {
 	let _ = env_logger::try_init();
 	let mut ext = new_test_ext();
 	// given
@@ -254,7 +254,7 @@ fn should_generate_proofs_correctly() {
 }
 
 #[test]
-fn should_verify() {
+fn check_verify_by_root() {
 	let _ = env_logger::try_init();
 
 	// Start off with chain initialisation and storing indexing data off-chain
@@ -283,7 +283,7 @@ fn should_verify() {
 }
 
 #[test]
-fn should_verify_on_the_next_block_since_there_is_no_pruning_yet() {
+fn check_verify_on_the_next_block_no_pruning_() {
 	let _ = env_logger::try_init();
 	let mut ext = new_test_ext();
 	// given
