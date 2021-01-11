@@ -84,6 +84,12 @@ impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf
     }
 }
 
+pub trait MapNodeLeaf {
+    type Item;
+    fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item;
+}
+
+
 /// An element representing either full data or it's hash.
 ///
 /// See [Compact] to see how it may be used in practice to reduce the size
