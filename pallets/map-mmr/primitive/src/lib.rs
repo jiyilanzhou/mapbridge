@@ -24,6 +24,35 @@ use sp_std::fmt;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::Vec;
 
+
+pub trait MapNodeLeaf {
+    type Item;
+    fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item;
+}
+
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Default)]
+pub struct MapNode<H: traits::Hash> {
+    pub tds:  u64,
+    pub tde:  u64,
+    pub hash: H::Output,  
+}
+
+impl<H: traits::Hash> MapNodeLeaf<H> {
+    pub fn new(tds: u64,tde: u64,h: H::Output) -> Self {
+        Self { tds, tde,hash }
+    }
+}
+
+impl<H: traits::Hash> MapNodeLeaf for MapNode<H> {
+    type Item = MapNode<H>;
+    fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item {
+        let mut concat = left.hash.as_ref().to_vec();
+        concat.extend_from_slice(right.hash().as_ref());
+        MapNode::new(left.tds,right.tde,concat)
+    }
+}
+
+
 /// A provider of the MMR's leaf data.
 pub trait LeafDataProvider {
     /// A type that should end up in the leaf of MMR.
@@ -83,12 +112,6 @@ impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf
         codec::Encode::using_encoded(self, f)
     }
 }
-
-pub trait MapNodeLeaf {
-    type Item;
-    fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item;
-}
-
 
 /// An element representing either full data or it's hash.
 ///
