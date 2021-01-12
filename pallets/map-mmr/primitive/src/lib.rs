@@ -25,10 +25,11 @@ use sp_std::fmt;
 use sp_std::prelude::Vec;
 
 
-pub trait MapNodeLeaf {
+pub trait MapNodeMerge {
     type Item;
-    fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item;
+    fn add(left: &Self::Item, right: &Self::Item) -> Self::Item;
 }
+
 
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Default)]
 pub struct MapNode<H: traits::Hash> {
@@ -37,18 +38,18 @@ pub struct MapNode<H: traits::Hash> {
     pub hash: H::Output,  
 }
 
-impl<H: traits::Hash> MapNodeLeaf<H> {
-    pub fn new(tds: u64,tde: u64,h: H::Output) -> Self {
-        Self { tds, tde,hash }
+impl<H: traits::Hash> MapNode<H> {
+    pub fn new(tds: u64,tde: u64,hash: H::Output) -> Self {
+        Self { tds, tde, hash}
     }
 }
 
-impl<H: traits::Hash> MapNodeLeaf for MapNode<H> {
+impl<H: traits::Hash> MapNodeMerge for MapNode<H> {
     type Item = MapNode<H>;
-    fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item {
+    fn add(left: &Self::Item, right: &Self::Item) -> Self::Item {
         let mut concat = left.hash.as_ref().to_vec();
-        concat.extend_from_slice(right.hash().as_ref());
-        MapNode::new(left.tds,right.tde,concat)
+        concat.extend_from_slice(right.hash.as_ref());
+        MapNode::new(left.tds,right.tde,<H as traits::Hash>::hash(&concat))
     }
 }
 
@@ -105,12 +106,16 @@ pub trait FullLeaf: Clone + PartialEq + fmt::Debug + codec::Decode {
     ///
     /// NOTE the encoding returned here MUST be `Decode`able into `FullLeaf`.
     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, compact: bool) -> R;
+    // fn node_merge<R:MapNodeMerge>(left: &R, right: &R) -> R;
 }
 
 impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf for T {
     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, _compact: bool) -> R {
         codec::Encode::using_encoded(self, f)
     }
+    // fn node_merge<R:MapNodeMerge>(left: &R, right: &R) -> R {
+    //     <MapNodeMerge>::add(left,right)
+    // }
 }
 
 /// An element representing either full data or it's hash.
@@ -233,7 +238,11 @@ macro_rules! impl_leaf_data_for_tuple {
 				} else {
 					codec::Encode::using_encoded(&self.tuple, f)
 				}
-			}
+            }
+            // fn node_merge<R:MapNodeMerge>(left: &R, right: &R) -> R {
+            //     type Item = R;
+            //     <MapNodeMerge>::add(left,right)
+            // }
 		}
 
 		/// [LeafDataProvider] implementation for `Compact<H, (DataOrHash<H, Tuple>, ...)>`

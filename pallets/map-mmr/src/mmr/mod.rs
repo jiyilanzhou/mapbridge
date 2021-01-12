@@ -19,7 +19,7 @@ pub mod storage;
 pub mod utils;
 mod mmr;
 
-use map_mmr_primitive::{FullLeaf, DataOrHash,MapNodeLeaf};
+use map_mmr_primitive::{FullLeaf, DataOrHash};
 use sp_runtime::traits;
 
 pub use self::mmr::{Mmr, Error};
@@ -33,16 +33,16 @@ pub type Node<H, L> = DataOrHash<H, L>;
 /// Default Merging & Hashing behavior for MMR.
 pub struct Hasher<H, L>(sp_std::marker::PhantomData<(H, L)>);
 
-impl<H: traits::Hash, L: FullLeaf+MapNodeLeaf> mmr_lib::Merge for Hasher<H, L> {
+impl<H: traits::Hash, L: FullLeaf> mmr_lib::Merge for Hasher<H, L> {
 	type Item = Node<H, L>;
 
-	// fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item {
-	// 	let mut concat = left.hash().as_ref().to_vec();
-	// 	concat.extend_from_slice(right.hash().as_ref());
-
-	// 	Node::Hash(<H as traits::Hash>::hash(&concat))
-	// }
 	fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item {
-		<L as MapNodeLeaf>::merge(left,right).clone()
+		let mut concat = left.hash().as_ref().to_vec();
+		concat.extend_from_slice(right.hash().as_ref());
+
+		Node::Hash(<H as traits::Hash>::hash(&concat))
 	}
+	// fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item {
+	// 	<L as MapNodeLeaf>::merge(left,right).clone()
+	// }
 }
