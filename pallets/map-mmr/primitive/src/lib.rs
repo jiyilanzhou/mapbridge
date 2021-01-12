@@ -102,20 +102,22 @@ impl<Hash> OnNewRoot<Hash> for () {
 
 /// A full leaf content stored in the offchain-db.
 pub trait FullLeaf: Clone + PartialEq + fmt::Debug + codec::Decode {
+    type Item;
+    fn add(left: &Self::Item, right: &Self::Item) -> Self::Item;
     /// Encode the leaf either in it's full or compact form.
     ///
     /// NOTE the encoding returned here MUST be `Decode`able into `FullLeaf`.
     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, compact: bool) -> R;
-    // fn node_merge<R:MapNodeMerge>(left: &R, right: &R) -> R;
 }
 
 impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf for T {
+    type Item = ();
+    fn add(left: &Self::Item, right: &Self::Item) -> Self::Item {
+        ()
+    }
     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, _compact: bool) -> R {
         codec::Encode::using_encoded(self, f)
     }
-    // fn node_merge<R:MapNodeMerge>(left: &R, right: &R) -> R {
-    //     <MapNodeMerge>::add(left,right)
-    // }
 }
 
 /// An element representing either full data or it's hash.
@@ -239,10 +241,10 @@ macro_rules! impl_leaf_data_for_tuple {
 					codec::Encode::using_encoded(&self.tuple, f)
 				}
             }
-            // fn node_merge<R:MapNodeMerge>(left: &R, right: &R) -> R {
-            //     type Item = R;
-            //     <MapNodeMerge>::add(left,right)
-            // }
+            type Item = ();
+            fn add(left: &Self::Item, right: &Self::Item) -> Self::Item {
+                ()
+            }
 		}
 
 		/// [LeafDataProvider] implementation for `Compact<H, (DataOrHash<H, Tuple>, ...)>`
