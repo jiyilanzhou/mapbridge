@@ -31,7 +31,7 @@ pub trait MapNodeMerge {
 }
 
 
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Default)]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Default,fmt::Debug)]
 pub struct MapNode<H: traits::Hash> {
     pub tds:  u64,
     pub tde:  u64,
@@ -42,17 +42,19 @@ impl<H: traits::Hash> MapNode<H> {
     pub fn new(tds: u64,tde: u64,hash: H::Output) -> Self {
         Self { tds, tde, hash}
     }
+    pub fn add(&self, right: &Self) -> Self {
+        let mut concat = self.hash.as_ref().to_vec();
+        concat.extend_from_slice(right.hash.as_ref());
+        MapNode::new(self.tds,right.tde,<H as traits::Hash>::hash(&concat))
+    }
 }
 
 impl<H: traits::Hash> MapNodeMerge for MapNode<H> {
     type Item = MapNode<H>;
     fn add(left: &Self::Item, right: &Self::Item) -> Self::Item {
-        let mut concat = left.hash.as_ref().to_vec();
-        concat.extend_from_slice(right.hash.as_ref());
-        MapNode::new(left.tds,right.tde,<H as traits::Hash>::hash(&concat))
+        left.add(right)
     }
 }
-
 
 /// A provider of the MMR's leaf data.
 pub trait LeafDataProvider {
@@ -186,7 +188,74 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
             Self::Hash(ref hash) => hash.clone(),
         }
     }
+    pub fn merge(&self,right: &Self) -> Self {
+        // match *self {
+        //     Self::Data(ref leaf) => {
+        //         Self::Data(<L as FullLeaf>::add(leaf,right))
+        //     },
+        //     Self::Hash(ref hash) => {
+        //         let mut concat = left.hash().as_ref().to_vec();
+		//         concat.extend_from_slice(right.hash().as_ref());
+
+		//         Self::Hash(<H as traits::Hash>::hash(&concat))
+        //     },
+        // } 
+        (*self).clone()
+    }
 }
+
+
+/// [FullLeaf] implementation for `Compact<H, (DataOrHash<H, Tuple>, ...)>`
+// impl<H, A> FullLeaf for Compact<H, (DataOrHash<H, A>, )> where
+//     H: traits::Hash,
+//     A: FullLeaf
+// {
+//     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, compact: bool) -> R {
+//         if compact {
+//             codec::Encode::using_encoded(&(
+//                 DataOrHash::<H, A>::Hash(self.tuple.0.hash()),
+//             ), f)
+//         } else {
+//             codec::Encode::using_encoded(&self.tuple, f)
+//         }
+//     }
+//     type Item = ();
+//     fn add(left: &Self::Item, right: &Self::Item) -> Self::Item {
+//         ()
+//     }
+// }
+/// [LeafDataProvider] implementation for `Compact<H, (DataOrHash<H, Tuple>, ...)>`
+///
+/// This provides a compact-form encoding for tuples wrapped in [Compact].
+// impl<H, A> LeafDataProvider for Compact<H, (A, )> where
+//     H: traits::Hash,
+//     A: LeafDataProvider
+// {
+//     type LeafData = Compact<
+//         H,
+//         (DataOrHash<H, A::LeafData>, ),
+//     >;
+//     fn leaf_data() -> Self::LeafData {
+//         let tuple = (
+//             DataOrHash::Data(A::leaf_data()),
+//         );
+//         Compact::new(tuple)
+//     }
+// }
+/// [LeafDataProvider] implementation for `(Tuple, ...)`
+///
+/// This provides regular (non-compactable) composition of [LeafDataProvider]s.
+// impl<A> LeafDataProvider for (A, ) where
+//     (A::LeafData, ): FullLeaf,
+//     A: LeafDataProvider
+// {
+//     type LeafData = (A::LeafData, );
+//     fn leaf_data() -> Self::LeafData {
+//         (
+//             A::leaf_data(),
+//         )
+//     }
+// }
 
 /// A composition of multiple leaf elements with compact form representation.
 ///
@@ -199,7 +268,7 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
 /// into [DataOrHash] and each tuple element is hashed first before constructing
 /// the final hash of the entire tuple. This allows you to replace tuple elements
 /// you don't care about with their hashes.
-#[derive(RuntimeDebug, Clone, PartialEq)]
+#[derive(RuntimeDebug, Clone, PartialEq,Default)]
 pub struct Compact<H, T> {
     pub tuple: T,
     _hash: sp_std::marker::PhantomData<H>,
