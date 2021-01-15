@@ -242,12 +242,12 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 	/// (Offchain Worker or Runtime API call), since it requires
 	/// all the leaves to be present.
 	/// It may return an error or panic if used incorrectly.
-	pub fn generate_proof(leaf_index: u64) -> Result<
+	pub fn generate_proof(block_number: u64) -> Result<
 		(LeafOf<T, I>, Proof<T::Hash>),
 		mmr::Error,
 	> {
 		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(Self::mmr_leaves());
-		let result = mmr.generate_proof(leaf_index);
+		let result = mmr.generate_proof(block_number -1);
 		result
 	}
 

@@ -83,7 +83,7 @@ fn init_chain(blocks: usize) {
 const PREFIX: &'static [u8] = b"";
 
 #[test]
-fn first_on_initialize() {
+fn check_header_mmr_digest() {
 	new_test_ext().execute_with(|| {
 		let parent_hash: H256 = Default::default();
 
@@ -189,6 +189,17 @@ fn check_construct_mmr_correctly() {
 			Some(hex("da5e6d0616e05c6a6348605a37ca33493fc1a15ad1e6a405ee05c17843fdafed")));
 		assert_eq!(crate::Nodes::<Test>::get(10),
 			Some(hex("af3327deed0515c8d1902c9b5cd375942d42f388f3bfe3d1cd6e1b86f9cc456c")));
+	});
+}
+
+#[test]
+fn check_mmr_root_hash() {
+	let _ = env_logger::try_init();
+	new_test_ext().execute_with(|| {
+		// when
+		init_chain(7);
+
+		// then
 		assert_eq!(
 			crate::RootHash::<Test>::get(),
 			hex("fc4f9042bd2f73feb26f3fc42db834c5f1943fa20070ddf106c486a478a0d561")
@@ -197,7 +208,7 @@ fn check_construct_mmr_correctly() {
 }
 
 #[test]
-fn check_generate_proofs_correctly() {
+fn check_generate_proofs() {
 	let _ = env_logger::try_init();
 	let mut ext = new_test_ext();
 	// given
@@ -211,7 +222,7 @@ fn check_generate_proofs_correctly() {
 		// when generate proofs for all leaves
 		let proofs = (0_u64..crate::NumberOfLeaves::<DefaultInstance>::get())
 			.into_iter()
-			.map(|leaf_index| crate::Module::<Test>::generate_proof(leaf_index).unwrap())
+			.map(|leaf_index| crate::Module::<Test>::generate_proof(leaf_index+1).unwrap())
 			.collect::<Vec<_>>();
 
 		// then
@@ -254,7 +265,27 @@ fn check_generate_proofs_correctly() {
 }
 
 #[test]
-fn check_verify_by_root() {
+fn check_verify_proof_by_root() {
+	let _ = env_logger::try_init();
+	let mut ext = new_test_ext();
+	// given
+	ext.execute_with(|| init_chain(7));
+
+	ext.persist_offchain_overlay();
+	register_offchain_ext(&mut ext);
+
+	ext.execute_with(|| {
+		// when
+		let (leaf, proof5) = crate::Module::<Test>::generate_proof(5).unwrap();
+		new_block();
+
+		// then
+		assert_eq!(crate::Module::<Test>::verify_proof_by_root(leaf, proof5), Ok(()));
+	});
+}
+
+#[test]
+fn check_verify_proof_by_root_sync() {
 	let _ = env_logger::try_init();
 
 	// Start off with chain initialisation and storing indexing data off-chain
@@ -277,26 +308,6 @@ fn check_verify_by_root() {
 	let mut ext2 = new_test_ext();
 	ext2.execute_with(|| {
 		init_chain(7);
-		// then
-		assert_eq!(crate::Module::<Test>::verify_proof_by_root(leaf, proof5), Ok(()));
-	});
-}
-
-#[test]
-fn check_verify_on_the_next_block_no_pruning_() {
-	let _ = env_logger::try_init();
-	let mut ext = new_test_ext();
-	// given
-	ext.execute_with(|| init_chain(7));
-
-	ext.persist_offchain_overlay();
-	register_offchain_ext(&mut ext);
-
-	ext.execute_with(|| {
-		// when
-		let (leaf, proof5) = crate::Module::<Test>::generate_proof(5).unwrap();
-		new_block();
-
 		// then
 		assert_eq!(crate::Module::<Test>::verify_proof_by_root(leaf, proof5), Ok(()));
 	});
