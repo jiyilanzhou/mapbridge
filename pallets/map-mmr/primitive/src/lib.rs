@@ -104,8 +104,7 @@ impl<Hash> OnNewRoot<Hash> for () {
 
 /// A full leaf content stored in the offchain-db.
 pub trait FullLeaf: Clone + PartialEq + fmt::Debug + codec::Decode {
-    type Item;
-    fn add(left: &Self::Item, right: &Self::Item) -> Self::Item;
+    fn add<R:Clone>(left: &R,right: &R) -> R;
     /// Encode the leaf either in it's full or compact form.
     ///
     /// NOTE the encoding returned here MUST be `Decode`able into `FullLeaf`.
@@ -113,9 +112,9 @@ pub trait FullLeaf: Clone + PartialEq + fmt::Debug + codec::Decode {
 }
 
 impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf for T {
-    type Item = ();
-    fn add(left: &Self::Item, right: &Self::Item) -> Self::Item {
-        ()
+
+    fn add<R:Clone>(left: &R,right: &R) -> R {
+        left.clone()
     }
     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, _compact: bool) -> R {
         codec::Encode::using_encoded(self, f)
@@ -189,18 +188,27 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
         }
     }
     pub fn merge(&self,right: &Self) -> Self {
-        // match *self {
-        //     Self::Data(ref leaf) => {
-        //         Self::Data(<L as FullLeaf>::add(leaf,right))
-        //     },
-        //     Self::Hash(ref hash) => {
-        //         let mut concat = left.hash().as_ref().to_vec();
-		//         concat.extend_from_slice(right.hash().as_ref());
-
-		//         Self::Hash(<H as traits::Hash>::hash(&concat))
-        //     },
-        // } 
-        (*self).clone()
+        match *self {
+            Self::Data(ref leaf) => {
+                match *right {
+                    Self::Data(ref rLeaf) => {
+                        Self::Data(<L>::add(leaf,rLeaf))
+                    },
+                    Self::Hash(ref rHash) => panic!("Incorrect right leaf is hash"),
+                }
+            },
+            Self::Hash(ref hash) => {
+                match *right {
+                    Self::Data(ref rLeaf) => panic!("Incorrect right leaf is data"),
+                    Self::Hash(ref rHash) => {
+                        let mut concat = hash.as_ref().to_vec();
+                        concat.extend_from_slice(rHash.as_ref());
+                        Self::Hash(<H as traits::Hash>::hash(&concat))
+                    },
+                }
+            },
+        } 
+        // (*self).clone()
     }
 }
 
@@ -310,9 +318,9 @@ macro_rules! impl_leaf_data_for_tuple {
 					codec::Encode::using_encoded(&self.tuple, f)
 				}
             }
-            type Item = ();
-            fn add(left: &Self::Item, right: &Self::Item) -> Self::Item {
-                ()
+
+            fn add<R:Clone>(left: &R,right: &R) -> R {
+                left.clone()
             }
 		}
 
