@@ -104,7 +104,8 @@ impl<Hash> OnNewRoot<Hash> for () {
 
 /// A full leaf content stored in the offchain-db.
 pub trait FullLeaf: Clone + PartialEq + fmt::Debug + codec::Decode {
-    fn add<R:Clone>(left: &R,right: &R) -> R;
+    // fn add<R:Clone>(left: &R,right: &R) -> R;
+    fn add<H:traits::Hash,L>(&self,right: &Self) -> DataOrHash<H,L>;
     /// Encode the leaf either in it's full or compact form.
     ///
     /// NOTE the encoding returned here MUST be `Decode`able into `FullLeaf`.
@@ -113,11 +114,14 @@ pub trait FullLeaf: Clone + PartialEq + fmt::Debug + codec::Decode {
 
 impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf for T {
 
-    fn add<R:Clone>(left: &R,right: &R) -> R {
-        left.clone()
-    }
     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, _compact: bool) -> R {
         codec::Encode::using_encoded(self, f)
+    }
+    
+    fn add<H:traits::Hash,L>(&self,right: &Self) -> DataOrHash<H,L> {
+        let mut concat = self.using_encoded(<H as traits::Hash>::hash).as_ref().to_vec();
+	    concat.extend_from_slice(right.using_encoded(<H as traits::Hash>::hash).as_ref());
+        DataOrHash::Hash(<H as traits::Hash>::hash(&concat))
     }
 }
 
@@ -192,7 +196,7 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
             Self::Data(ref leaf) => {
                 match *right {
                     Self::Data(ref rLeaf) => {
-                        Self::Data(<L>::add(leaf,rLeaf))
+                        <L>::add(leaf,rLeaf)
                     },
                     Self::Hash(ref rHash) => panic!("Incorrect right leaf is hash"),
                 }
@@ -319,8 +323,12 @@ macro_rules! impl_leaf_data_for_tuple {
 				}
             }
 
-            fn add<R:Clone>(left: &R,right: &R) -> R {
-                left.clone()
+            fn add<HASH:traits::Hash,L>(&self,right: &Self) -> DataOrHash<HASH,L> {
+                let tuple = (
+					$( self.tuple.$id.merge(&right.tuple.$id), )+
+                );
+                let concat = codec::Encode::using_encoded(&tuple, <HASH as traits::Hash>::hash).as_ref().to_vec();
+                DataOrHash::Hash(<HASH as traits::Hash>::hash(&concat))
             }
 		}
 
