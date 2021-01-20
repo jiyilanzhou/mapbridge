@@ -20,16 +20,22 @@
 
 use frame_support::RuntimeDebug;
 use sp_runtime::traits;
+use sp_runtime::traits::Keccak256;
 use sp_std::fmt;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::Vec;
 
-
-pub trait MapNodeMerge {
-    type Item;
-    fn add(left: &Self::Item, right: &Self::Item) -> Self::Item;
+/// A helper type to implement [codec::Codec] for [DataOrHash].
+#[derive(codec::Encode, codec::Decode)]
+enum Either<A, B> {
+    Left(A),
+    Right(B),
 }
 
+
+pub trait MapNodeMerge {
+    fn map_merge(&self, right: &Self) -> Self;
+}
 
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Default,fmt::Debug)]
 pub struct MapNode<H: traits::Hash> {
@@ -50,11 +56,87 @@ impl<H: traits::Hash> MapNode<H> {
 }
 
 impl<H: traits::Hash> MapNodeMerge for MapNode<H> {
-    type Item = MapNode<H>;
-    fn add(left: &Self::Item, right: &Self::Item) -> Self::Item {
-        left.add(right)
+    fn map_merge(&self, right: &Self) -> Self {
+        self.add(right)
     }
 }
+
+#[derive(RuntimeDebug, Clone, PartialEq,Default)]
+pub struct Compact2<H, T> {
+    pub tuple: T,
+    _hash: sp_std::marker::PhantomData<H>,
+}
+
+impl<H, T> sp_std::ops::Deref for Compact2<H, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.tuple
+    }
+}
+
+impl<H, T> Compact2<H, T> {
+    pub fn new(tuple: T) -> Self {
+        Self { tuple, _hash: Default::default() }
+    }
+}
+
+impl<H, T: codec::Decode> codec::Decode for Compact2<H, T> {
+    fn decode<I: codec::Input>(value: &mut I) -> Result<Self, codec::Error> {
+        T::decode(value).map(Compact2::new)
+    }
+}
+
+/// [FullLeaf] implementation for `Compact<H, (DataOrHash<H, Tuple>, ...)>`
+impl<H, T> FullLeaf for Compact2<H, DataOrHash<H, T>> where
+    H: traits::Hash,
+    T: FullLeaf + MapNodeMerge
+{
+    fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, compact: bool) -> R {
+        if compact {
+            codec::Encode::using_encoded(&(
+                DataOrHash::<H, T>::Hash(self.tuple.hash()),
+            ), f)
+        } else {
+            codec::Encode::using_encoded(&self.tuple, f)
+        }
+    }
+    fn add(&self,right: &Self) -> Vec<u8> {
+        self.tuple.merge_in_sepc(&right.tuple)
+    }
+}
+/// [LeafDataProvider] implementation for `Compact<H, (DataOrHash<H, Tuple>, ...)>`
+///
+/// This provides a compact-form encoding for tuples wrapped in [Compact].
+// impl<H, A> LeafDataProvider for Compact<H, (A, )> where
+//     H: traits::Hash,
+//     A: LeafDataProvider
+// {
+//     type LeafData = Compact<
+//         H,
+//         (DataOrHash<H, A::LeafData>, ),
+//     >;
+//     fn leaf_data() -> Self::LeafData {
+//         let tuple = (
+//             DataOrHash::Data(A::leaf_data()),
+//         );
+//         Compact::new(tuple)
+//     }
+// }
+/// [LeafDataProvider] implementation for `(Tuple, ...)`
+///
+/// This provides regular (non-compactable) composition of [LeafDataProvider]s.
+// impl<A> LeafDataProvider for (A, ) where
+//     (A::LeafData, ): FullLeaf,
+//     A: LeafDataProvider
+// {
+//     type LeafData = (A::LeafData, );
+//     fn leaf_data() -> Self::LeafData {
+//         (
+//             A::leaf_data(),
+//         )
+//     }
+// }
 
 /// A provider of the MMR's leaf data.
 pub trait LeafDataProvider {
@@ -104,8 +186,7 @@ impl<Hash> OnNewRoot<Hash> for () {
 
 /// A full leaf content stored in the offchain-db.
 pub trait FullLeaf: Clone + PartialEq + fmt::Debug + codec::Decode {
-    // fn add<R:Clone>(left: &R,right: &R) -> R;
-    fn add<H:traits::Hash,L>(&self,right: &Self) -> DataOrHash<H,L>;
+    fn add(&self,right: &Self) -> Vec<u8>;
     /// Encode the leaf either in it's full or compact form.
     ///
     /// NOTE the encoding returned here MUST be `Decode`able into `FullLeaf`.
@@ -117,11 +198,17 @@ impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf
     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, _compact: bool) -> R {
         codec::Encode::using_encoded(self, f)
     }
-    
-    fn add<H:traits::Hash,L>(&self,right: &Self) -> DataOrHash<H,L> {
-        let mut concat = self.using_encoded(<H as traits::Hash>::hash).as_ref().to_vec();
-	    concat.extend_from_slice(right.using_encoded(<H as traits::Hash>::hash).as_ref());
-        DataOrHash::Hash(<H as traits::Hash>::hash(&concat))
+    // fn add_sepc<R=Self,F: FnOnce(&self,r: &Self)->R>(self,f: F) -> R {
+    //     f(self,r)
+    // }
+    fn add(&self,right: &Self) -> Vec<u8> {
+        let mut concat = self.using_encoded(<Keccak256 as traits::Hash>::hash).as_ref().to_vec();
+        concat.extend_from_slice(right.using_encoded(<Keccak256 as traits::Hash>::hash).as_ref());
+        let content = <Keccak256 as traits::Hash>::hash(&concat);
+        let e = Either::<&[u8], &<Keccak256 as traits::Hash>::Output>::Right(&content);
+        let mut dest = Vec::new();
+        codec::Encode::encode_to(&e,&mut dest);
+        dest.clone()
     }
 }
 
@@ -148,15 +235,10 @@ impl<H: traits::Hash, L> From<L> for DataOrHash<H, L> {
     }
 }
 
+
+
 mod encoding {
     use super::*;
-
-    /// A helper type to implement [codec::Codec] for [DataOrHash].
-    #[derive(codec::Encode, codec::Decode)]
-    enum Either<A, B> {
-        Left(A),
-        Right(B),
-    }
 
     impl<H: traits::Hash, L: FullLeaf> codec::Encode for DataOrHash<H, L> {
         fn encode_to<T: codec::Output>(&self, dest: &mut T) {
@@ -180,6 +262,7 @@ mod encoding {
     }
 }
 
+
 impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
     /// Retrieve a hash of this item.
     ///
@@ -196,7 +279,8 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
             Self::Data(ref leaf) => {
                 match *right {
                     Self::Data(ref rLeaf) => {
-                        <L>::add(leaf,rLeaf)
+                        let concat = <L as FullLeaf>::add(leaf,rLeaf);
+                        codec::Decode::decode(&mut &concat[..]).unwrap()
                     },
                     Self::Hash(ref rHash) => panic!("Incorrect right leaf is hash"),
                 }
@@ -212,62 +296,38 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
                 }
             },
         } 
-        // (*self).clone()
     }
 }
 
+impl<H: traits::Hash, L: FullLeaf + MapNodeMerge> DataOrHash<H, L> {
 
-/// [FullLeaf] implementation for `Compact<H, (DataOrHash<H, Tuple>, ...)>`
-// impl<H, A> FullLeaf for Compact<H, (DataOrHash<H, A>, )> where
-//     H: traits::Hash,
-//     A: FullLeaf
-// {
-//     fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F, compact: bool) -> R {
-//         if compact {
-//             codec::Encode::using_encoded(&(
-//                 DataOrHash::<H, A>::Hash(self.tuple.0.hash()),
-//             ), f)
-//         } else {
-//             codec::Encode::using_encoded(&self.tuple, f)
-//         }
-//     }
-//     type Item = ();
-//     fn add(left: &Self::Item, right: &Self::Item) -> Self::Item {
-//         ()
-//     }
-// }
-/// [LeafDataProvider] implementation for `Compact<H, (DataOrHash<H, Tuple>, ...)>`
-///
-/// This provides a compact-form encoding for tuples wrapped in [Compact].
-// impl<H, A> LeafDataProvider for Compact<H, (A, )> where
-//     H: traits::Hash,
-//     A: LeafDataProvider
-// {
-//     type LeafData = Compact<
-//         H,
-//         (DataOrHash<H, A::LeafData>, ),
-//     >;
-//     fn leaf_data() -> Self::LeafData {
-//         let tuple = (
-//             DataOrHash::Data(A::leaf_data()),
-//         );
-//         Compact::new(tuple)
-//     }
-// }
-/// [LeafDataProvider] implementation for `(Tuple, ...)`
-///
-/// This provides regular (non-compactable) composition of [LeafDataProvider]s.
-// impl<A> LeafDataProvider for (A, ) where
-//     (A::LeafData, ): FullLeaf,
-//     A: LeafDataProvider
-// {
-//     type LeafData = (A::LeafData, );
-//     fn leaf_data() -> Self::LeafData {
-//         (
-//             A::leaf_data(),
-//         )
-//     }
-// }
+    pub fn merge_in_sepc(&self,right: &Self) -> Vec<u8> {
+        let s = match *self {
+            Self::Data(ref leaf) => {
+                match *right {
+                    Self::Data(ref rLeaf) => {
+                        Self::Data(leaf.map_merge(rLeaf))
+                    },
+                    Self::Hash(ref rHash) => panic!("[merge_in_sepc] Incorrect right leaf is hash"),
+                }
+            },
+            Self::Hash(ref hash) => {
+                match *right {
+                    Self::Data(ref rLeaf) => panic!("[merge_in_sepc] Incorrect right leaf is data"),
+                    Self::Hash(ref rHash) => {
+                        let mut concat = hash.as_ref().to_vec();
+                        concat.extend_from_slice(rHash.as_ref());
+                        Self::Hash(<H as traits::Hash>::hash(&concat))
+                    },
+                }
+            },
+        };
+        let mut dest = Vec::new();
+        codec::Encode::encode_to(&s,&mut dest);
+        dest.clone()
+    }
+}
+
 
 /// A composition of multiple leaf elements with compact form representation.
 ///
@@ -323,12 +383,12 @@ macro_rules! impl_leaf_data_for_tuple {
 				}
             }
 
-            fn add<HASH:traits::Hash,L>(&self,right: &Self) -> DataOrHash<HASH,L> {
+            fn add(&self,right: &Self) -> Vec<u8> {
                 let tuple = (
 					$( self.tuple.$id.merge(&right.tuple.$id), )+
                 );
-                let concat = codec::Encode::using_encoded(&tuple, <HASH as traits::Hash>::hash).as_ref().to_vec();
-                DataOrHash::Hash(<HASH as traits::Hash>::hash(&concat))
+                let concat = codec::Encode::using_encoded(&tuple, <H as traits::Hash>::hash).as_ref().to_vec();
+                concat.clone()
             }
 		}
 
